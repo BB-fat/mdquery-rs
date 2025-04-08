@@ -8,3 +8,6 @@ futures = "0.3"
 anyhow = "1"
 objc2 = "0.6"
 objc2-core-foundation = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

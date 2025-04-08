@@ -1,11 +1,9 @@
+use super::api::*;
 use super::{MDItem, MDQueryBuilder, MDQueryScope};
 use anyhow::{anyhow, Result};
-use objc2_core_foundation::{
-    CFArrayCreate, CFIndex, CFOptionFlags, CFRetained, CFString,
-};
+use objc2_core_foundation::{CFArrayCreate, CFIndex, CFRetained, CFString};
 use std::ptr;
 use std::sync::Arc;
-use super::api::*;
 
 pub struct MDQuery(Arc<CFRetained<CoreMDQuery>>);
 
@@ -60,21 +58,19 @@ impl MDQuery {
         Ok(MDQuery(Arc::new(md_query)))
     }
 
-    pub fn execute(self) -> Result<Vec<MDItem>> {
-        unsafe {
-            // TODO 写成异步执行
-            let success =
-                MDQueryExecute(&self.0, MDQueryOptionsFlags::SYNCHRONOUS as CFOptionFlags);
-            if !success {
-                return Err(anyhow!("MDQuery execute failed."));
-            }
-            let count = MDQueryGetResultCount(&self.0);
-            let mut items = Vec::with_capacity(count as usize);
-            for i in 0..count {
-                items.push(MDItem::new(i as isize, self.0.clone()));
-            }
-            Ok(items)
+    pub async fn execute(self) -> Result<Vec<MDItem>> {
+        let success = unsafe { MDQueryExecute(&self.0, MDQueryOptionsFlags::NONE as _) };
+        if !success {
+            return Err(anyhow!("MDQuery execute failed."));
         }
+        let count = unsafe { MDQueryGetResultCount(&self.0) };
+        let mut items = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            if let Some(item) = unsafe { MDQueryGetResultAtIndex(&self.0, i) } {
+                items.push(MDItem::new(item));
+            }
+        }
+        Ok(items)
     }
 }
 
@@ -94,15 +90,15 @@ impl MDQueryOptionsFlags {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_md_query_execute() {
+    #[tokio::test]
+    async fn test_md_query_execute() {
         let query = MDQuery::new(
             "kMDItemFSName = \"Desktop\"",
             Some(vec![MDQueryScope::Home]),
             Some(5),
         )
         .unwrap();
-        let items = query.execute().unwrap();
+        let items = query.execute().await.unwrap();
         assert!(items.len() > 0, "MDQuery::execute should return items");
     }
 }

@@ -29,10 +29,19 @@ extern "C" {
 
     // https://developer.apple.com/documentation/coreservices/1413008-mdquerygetresultcount?language=objc
     pub(super) fn MDQueryGetResultCount(query: &CoreMDQuery) -> CFIndex;
+
+    // https://developer.apple.com/documentation/coreservices/1413055-mdquerygetresultatindex?language=objc
+    pub(super) fn MDQueryGetResultAtIndex(query: &CoreMDQuery, index: CFIndex) -> Option<CFRetained<CoreMDItem>>;
 }
 
 #[repr(C)]
 pub(super) struct CoreMDQuery {
+    inner: [u8; 0],
+    _p: UnsafeCell<PhantomData<(*const UnsafeCell<()>, PhantomPinned)>>,
+}
+
+#[repr(C)]
+pub(super) struct CoreMDItem {
     inner: [u8; 0],
     _p: UnsafeCell<PhantomData<(*const UnsafeCell<()>, PhantomPinned)>>,
 }

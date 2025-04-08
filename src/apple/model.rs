@@ -1,17 +1,13 @@
-use std::path::PathBuf;
+use super::api::*;
 use anyhow::Result;
 use objc2_core_foundation::CFRetained;
-use std::sync::Arc;
-use super::api::*;
+use std::path::PathBuf;
 
-pub struct MDItem {
-    query: Arc<CFRetained<CoreMDQuery>>,
-    index: isize,
-}
+pub struct MDItem(CFRetained<CoreMDItem>);
 
 impl MDItem {
-    pub(super) fn new(index: isize, query: Arc<CFRetained<CoreMDQuery>>) -> Self {
-        Self { index, query }
+    pub(super) fn new(item: CFRetained<CoreMDItem>) -> Self {
+        Self(item)
     }
 
     pub fn get_attribute_names(&self) -> Vec<String> {
@@ -38,7 +34,7 @@ pub enum MDQueryScope {
     AllIndexed,
     ComputerIndexed,
     NetworkIndexed,
-    Custom(PathBuf)
+    Custom(PathBuf),
 }
 
 impl MDQueryScope {
