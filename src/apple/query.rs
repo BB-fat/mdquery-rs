@@ -59,18 +59,26 @@ impl MDQuery {
     }
 
     pub async fn execute(self) -> Result<Vec<MDItem>> {
-        let success = unsafe { MDQueryExecute(&self.0, MDQueryOptionsFlags::NONE as _) };
-        if !success {
-            return Err(anyhow!("MDQuery execute failed."));
-        }
-        let count = unsafe { MDQueryGetResultCount(&self.0) };
-        let mut items = Vec::with_capacity(count as usize);
-        for i in 0..count {
-            if let Some(item) = unsafe { MDQueryGetResultAtIndex(&self.0, i) } {
-                items.push(MDItem::new(item));
+        unsafe {
+            let query = self.0.clone();
+            let success = tokio::task::spawn_blocking(move || {
+                MDQueryExecute(&query, MDQueryOptionsFlags::SYNCHRONOUS as _)
+            })
+            .await?;
+
+            if !success {
+                return Err(anyhow!("MDQuery execute failed."));
             }
+
+            let count = MDQueryGetResultCount(&self.0);
+            let mut items = Vec::with_capacity(count as usize);
+            for i in 0..count {
+                if let Some(item) = MDQueryGetResultAtIndex(&self.0, i) {
+                    items.push(MDItem::new(item));
+                }
+            }
+            Ok(items)
         }
-        Ok(items)
     }
 }
 
@@ -98,6 +106,7 @@ mod tests {
             Some(5),
         )
         .unwrap();
+
         let items = query.execute().await.unwrap();
         assert!(items.len() > 0, "MDQuery::execute should return items");
     }

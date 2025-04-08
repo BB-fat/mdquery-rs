@@ -35,10 +35,7 @@ extern "C" {
 }
 
 #[repr(C)]
-pub(super) struct CoreMDQuery {
-    inner: [u8; 0],
-    _p: UnsafeCell<PhantomData<(*const UnsafeCell<()>, PhantomPinned)>>,
-}
+pub(super) struct CoreMDQuery([u8; 0]);
 
 #[repr(C)]
 pub(super) struct CoreMDItem {
