@@ -1,45 +1,11 @@
 use super::{MDItem, MDQueryBuilder, MDQueryScope};
 use anyhow::{anyhow, Result};
 use objc2_core_foundation::{
-    CFAllocator, CFArray, CFArrayCreate, CFIndex, CFOptionFlags, CFRetained, CFString,
+    CFArrayCreate, CFIndex, CFOptionFlags, CFRetained, CFString,
 };
-use std::cell::UnsafeCell;
-use std::marker::{PhantomData, PhantomPinned};
 use std::ptr;
 use std::sync::Arc;
-
-#[repr(C)]
-pub(super) struct CoreMDQuery {
-    inner: [u8; 0],
-    _p: UnsafeCell<PhantomData<(*const UnsafeCell<()>, PhantomPinned)>>,
-}
-
-#[link(name = "CoreServices", kind = "framework")]
-extern "C" {
-    // https://developer.apple.com/documentation/coreservices/1413029-mdquerycreate?language=objc
-    fn MDQueryCreate(
-        allocator: Option<&CFAllocator>,
-        query_string: &CFString,
-        value_list_attrs: Option<&CFArray>,
-        sorting_attrs: Option<&CFArray>,
-    ) -> Option<CFRetained<CoreMDQuery>>;
-
-    // https://developer.apple.com/documentation/coreservices/1413048-mdquerysetsearchscope?language=objc
-    fn MDQuerySetSearchScope(
-        query: &CoreMDQuery,
-        scope_directories: &CFArray,
-        scope_options: u32, // OptionBits
-    );
-
-    // https://developer.apple.com/documentation/coreservices/1413085-mdquerysetmaxcount?language=objc
-    fn MDQuerySetMaxCount(query: &CoreMDQuery, max_count: CFIndex);
-
-    // https://developer.apple.com/documentation/coreservices/1413099-mdqueryexecute?language=objc
-    fn MDQueryExecute(query: &CoreMDQuery, option_flags: CFOptionFlags) -> bool;
-
-    // https://developer.apple.com/documentation/coreservices/1413008-mdquerygetresultcount?language=objc
-    fn MDQueryGetResultCount(query: &CoreMDQuery) -> CFIndex;
-}
+use super::api::*;
 
 pub struct MDQuery(Arc<CFRetained<CoreMDQuery>>);
 
@@ -127,31 +93,6 @@ impl MDQueryOptionsFlags {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use objc2_core_foundation::CFString;
-
-    #[test]
-    fn test_md_query_create() {
-        let query_string = CFString::from_str("kMDItemFSName = \"test\"");
-        let result = unsafe {
-            MDQueryCreate(
-                None, // kCFAllocatorDefault
-                &query_string,
-                None,
-                None,
-            )
-        };
-        assert!(result.is_some(), "MDQueryCreate should not return null");
-    }
-
-    #[test]
-    fn test_md_query_new() {
-        let result = MDQuery::new(
-            "kMDItemFSName = \"test\"",
-            Some(vec![MDQueryScope::Home]),
-            None,
-        );
-        assert!(result.is_ok(), "MDQuery::new should not return error");
-    }
 
     #[test]
     fn test_md_query_execute() {

@@ -2,12 +2,11 @@ use std::path::PathBuf;
 use anyhow::Result;
 use objc2_core_foundation::CFRetained;
 use std::sync::Arc;
-
-use super::CoreMDQuery;
+use super::api::*;
 
 pub struct MDItem {
-    index: isize,
     query: Arc<CFRetained<CoreMDQuery>>,
+    index: isize,
 }
 
 impl MDItem {
