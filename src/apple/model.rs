@@ -1,9 +1,20 @@
 use std::path::PathBuf;
 use anyhow::Result;
+use objc2_core_foundation::CFRetained;
+use std::sync::Arc;
 
-pub struct MDItem;
+use super::CoreMDQuery;
+
+pub struct MDItem {
+    index: isize,
+    query: Arc<CFRetained<CoreMDQuery>>,
+}
 
 impl MDItem {
+    pub(super) fn new(index: isize, query: Arc<CFRetained<CoreMDQuery>>) -> Self {
+        Self { index, query }
+    }
+
     pub fn get_attribute_names(&self) -> Vec<String> {
         unimplemented!()
     }
