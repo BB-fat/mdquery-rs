@@ -1,9 +1,15 @@
-use std::path::PathBuf;
+use super::api::*;
 use anyhow::Result;
+use objc2_core_foundation::CFRetained;
+use std::path::PathBuf;
 
-pub struct MDItem;
+pub struct MDItem(CFRetained<CoreMDItem>);
 
 impl MDItem {
+    pub(super) fn new(item: CFRetained<CoreMDItem>) -> Self {
+        Self(item)
+    }
+
     pub fn get_attribute_names(&self) -> Vec<String> {
         unimplemented!()
     }
@@ -28,5 +34,19 @@ pub enum MDQueryScope {
     AllIndexed,
     ComputerIndexed,
     NetworkIndexed,
-    Custom(PathBuf)
+    Custom(PathBuf),
+}
+
+impl MDQueryScope {
+    pub(crate) fn into_scope_string(&self) -> String {
+        match self {
+            MDQueryScope::Home => "kMDQueryScopeHome".to_string(),
+            MDQueryScope::Computer => "kMDQueryScopeComputer".to_string(),
+            MDQueryScope::Network => "kMDQueryScopeNetwork".to_string(),
+            MDQueryScope::AllIndexed => "kMDQueryScopeAllIndexed".to_string(),
+            MDQueryScope::ComputerIndexed => "kMDQueryScopeComputerIndexed".to_string(),
+            MDQueryScope::NetworkIndexed => "kMDQueryScopeNetworkIndexed".to_string(),
+            MDQueryScope::Custom(path) => path.to_string_lossy().to_string(),
+        }
+    }
 }
