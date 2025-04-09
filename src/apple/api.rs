@@ -56,6 +56,32 @@ pub(super) unsafe extern "C-unwind" fn MDQueryGetResultAtIndex(
     ret.map(|ret| unsafe { CFRetained::from_raw(ret) })
 }
 
+#[inline]
+pub(super) unsafe extern "C-unwind" fn MDItemCreate(
+    allocator: Option<&CFAllocator>,
+    path: &CFString,
+) -> Option<CFRetained<CoreMDItem>> {
+    extern "C-unwind" {
+        fn MDItemCreate(
+            allocator: Option<&CFAllocator>,
+            path: Option<&CFString>,
+        ) -> Option<NonNull<CoreMDItem>>;
+    }
+    let ret = unsafe { MDItemCreate(allocator, Some(path)) };
+    ret.map(|ret| unsafe { CFRetained::from_raw(ret) })
+}
+
+#[inline]
+pub(super) unsafe extern "C-unwind" fn MDItemCopyAttributeNames(
+    item: &CoreMDItem,
+) -> Option<CFRetained<CFArray>> {
+    extern "C-unwind" {
+        fn MDItemCopyAttributeNames(item: &CoreMDItem) -> Option<NonNull<CFArray>>;
+    }
+    let ret = unsafe { MDItemCopyAttributeNames(item) };
+    ret.map(|ret| unsafe { CFRetained::from_raw(ret) })
+}
+
 #[link(name = "CoreServices", kind = "framework")]
 extern "C" {
     // https://developer.apple.com/documentation/coreservices/1413048-mdquerysetsearchscope?language=objc

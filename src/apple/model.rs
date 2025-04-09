@@ -1,31 +1,4 @@
-use super::api::*;
-use anyhow::Result;
-use objc2_core_foundation::CFRetained;
 use std::path::PathBuf;
-
-pub struct MDItem(CFRetained<CoreMDItem>);
-
-impl MDItem {
-    pub(super) fn new(item: CFRetained<CoreMDItem>) -> Self {
-        Self(item)
-    }
-
-    pub fn get_attribute_names(&self) -> Vec<String> {
-        unimplemented!()
-    }
-
-    pub fn get_attribute(&self, name: &str) -> Result<String> {
-        unimplemented!()
-    }
-
-    pub fn path(&self) -> Option<PathBuf> {
-        unimplemented!()
-    }
-
-    pub fn display_name(&self) -> Option<String> {
-        unimplemented!()
-    }
-}
 
 pub enum MDQueryScope {
     Home,
