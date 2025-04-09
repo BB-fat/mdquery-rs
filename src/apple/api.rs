@@ -1,5 +1,5 @@
 use objc2_core_foundation::{
-    CFAllocator, CFArray, CFIndex, CFOptionFlags, CFRetained, CFString, Type,
+    CFAllocator, CFArray, CFIndex, CFOptionFlags, CFRetained, CFString, CFType, Type
 };
 use std::ptr::NonNull;
 
@@ -79,6 +79,18 @@ pub(super) unsafe extern "C-unwind" fn MDItemCopyAttributeNames(
         fn MDItemCopyAttributeNames(item: &CoreMDItem) -> Option<NonNull<CFArray>>;
     }
     let ret = unsafe { MDItemCopyAttributeNames(item) };
+    ret.map(|ret| unsafe { CFRetained::from_raw(ret) })
+}
+
+#[inline]
+pub(super) unsafe extern "C-unwind" fn MDItemCopyAttribute(
+    item: &CoreMDItem,
+    name: &CFString,
+) -> Option<CFRetained<CFType>> {
+    extern "C-unwind" {
+        fn MDItemCopyAttribute(item: &CoreMDItem, name: &CFString) -> Option<NonNull<CFType>>;
+    }
+    let ret = unsafe { MDItemCopyAttribute(item, name) };
     ret.map(|ret| unsafe { CFRetained::from_raw(ret) })
 }
 

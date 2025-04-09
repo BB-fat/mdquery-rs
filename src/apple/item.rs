@@ -1,7 +1,7 @@
 use super::api::*;
 use anyhow::{anyhow, Result};
 use objc2_core_foundation::{
-    CFArrayGetCount, CFArrayGetValueAtIndex, CFIndex, CFRetained, CFString,
+    CFArrayGetCount, CFArrayGetValueAtIndex, CFIndex, CFRetained, CFString, ConcreteType,
 };
 use std::{
     path::{Path, PathBuf},
@@ -40,19 +40,27 @@ impl MDItem {
             .unwrap_or_default()
     }
 
-    pub fn get_attribute(&self, name: &str) -> Result<String> {
-        unimplemented!()
+    pub fn get_attribute<T: Sized + ConcreteType>(&self, name: &str) -> Option<CFRetained<T>> {
+        let name = CFString::from_str(name);
+        let value = unsafe { MDItemCopyAttribute(&self.0, &name) }?;
+        value.downcast::<T>().ok()
     }
 
     pub fn path(&self) -> Option<PathBuf> {
-        unimplemented!()
+        self.get_attribute::<CFString>("kMDItemPath").map(|path| {
+            let path_str = (&*path).to_string();
+            PathBuf::from(path_str)
+        })
     }
 
     pub fn display_name(&self) -> Option<String> {
-        unimplemented!()
+        self.get_attribute::<CFString>("kMDItemDisplayName")
+            .map(|name| {
+                let name_str = (&*name).to_string();
+                name_str
+            })
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -63,5 +71,12 @@ mod tests {
         let item = MDItem::from_path("/Applications/Safari.app").unwrap();
         let names = item.get_attribute_names();
         assert!(names.len() > 0);
+    }
+
+    #[test]
+    fn test_get_path() {
+        let item = MDItem::from_path("/Applications/Safari.app").unwrap();
+        let path = item.path().unwrap();
+        assert_eq!(path, PathBuf::from("/Applications/Safari.app"));
     }
 }
