@@ -3,9 +3,8 @@ use super::{MDItem, MDQueryBuilder, MDQueryScope};
 use anyhow::{anyhow, Result};
 use objc2_core_foundation::{CFArrayCreate, CFIndex, CFRetained, CFString};
 use std::ptr;
-use std::sync::Arc;
 
-pub struct MDQuery(Arc<CFRetained<CoreMDQuery>>);
+pub struct MDQuery(CFRetained<CoreMDQuery>);
 
 impl MDQuery {
     pub fn builder() -> MDQueryBuilder {
@@ -55,16 +54,13 @@ impl MDQuery {
             }
         }
 
-        Ok(MDQuery(Arc::new(md_query)))
+        Ok(MDQuery(md_query))
     }
 
-    pub async fn execute(self) -> Result<Vec<MDItem>> {
+    pub fn execute(self) -> Result<Vec<MDItem>> {
         unsafe {
             let query = self.0.clone();
-            let success = tokio::task::spawn_blocking(move || {
-                MDQueryExecute(&query, MDQueryOptionsFlags::SYNCHRONOUS as _)
-            })
-            .await?;
+            let success = MDQueryExecute(&query, MDQueryOptionsFlags::SYNCHRONOUS as _);
 
             if !success {
                 return Err(anyhow!("MDQuery execute failed."));
@@ -96,18 +92,24 @@ impl MDQueryOptionsFlags {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
-    #[tokio::test]
-    async fn test_md_query_execute() {
+    #[test]
+    fn test_md_query_execute() {
         let query = MDQuery::new(
-            "kMDItemFSName = \"Desktop\"",
-            Some(vec![MDQueryScope::Home]),
+            "kMDItemFSName = \"Safari.app\"",
+            Some(vec![MDQueryScope::Custom("/Applications".into())]),
             Some(5),
         )
         .unwrap();
 
-        let items = query.execute().await.unwrap();
-        assert!(items.len() > 0, "MDQuery::execute should return items");
+        let items = query.execute().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(
+            items[0].path().unwrap(),
+            PathBuf::from("/Applications/Safari.app")
+        );
     }
 }

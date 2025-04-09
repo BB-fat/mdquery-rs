@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use objc2_core_foundation::{
     CFAllocator, CFArray, CFIndex, CFOptionFlags, CFRetained, CFString, CFType, Type
 };
