@@ -4,13 +4,28 @@ use anyhow::{anyhow, Result};
 use objc2_core_foundation::{CFArrayCreate, CFIndex, CFRetained, CFString};
 use std::ptr;
 
+/// A wrapper around macOS Spotlight search query API.
+/// Provides functionality to create and execute metadata queries.
 pub struct MDQuery(CFRetained<CoreMDQuery>);
 
 impl MDQuery {
+    /// Creates a new query builder with default settings.
+    ///
+    /// # Returns
+    /// A new `MDQueryBuilder` instance for configuring the query.
     pub fn builder() -> MDQueryBuilder {
         MDQueryBuilder::default()
     }
 
+    /// Creates a new MDQuery with the given query string and optional parameters.
+    ///
+    /// # Parameters
+    /// * `query` - A Spotlight query string
+    /// * `scopes` - Optional vector of search scopes to limit the query
+    /// * `max_count` - Optional maximum number of results to return
+    ///
+    /// # Returns
+    /// A Result containing the MDQuery on success, or an error if query creation fails.
     pub fn new(
         query: &str,
         scopes: Option<Vec<MDQueryScope>>,
@@ -57,6 +72,10 @@ impl MDQuery {
         Ok(MDQuery(md_query))
     }
 
+    /// Executes the query and collects the results.
+    ///
+    /// # Returns
+    /// A Result containing a vector of MDItem objects on success, or an error if execution fails.
     pub fn execute(self) -> Result<Vec<MDItem>> {
         unsafe {
             let query = self.0.clone();

@@ -8,6 +8,8 @@ use std::{
     ptr::NonNull,
 };
 
+/// A wrapper around macOS Metadata Item (MDItem).
+/// Provides access to file and directory metadata through the Spotlight metadata framework.
 pub struct MDItem(CFRetained<CoreMDItem>);
 
 impl MDItem {
@@ -15,6 +17,16 @@ impl MDItem {
         Self(item)
     }
 
+    /// Creates a new MDItem from a file path.
+    /// 
+    /// # Arguments
+    /// * `path` - A path to a file or directory
+    /// 
+    /// # Returns
+    /// * `Result<Self>` - A new MDItem instance or an error
+    /// 
+    /// # Errors
+    /// * Returns an error if the path is invalid or if the MDItem creation fails
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref().canonicalize()?;
         let path_str = CFString::from_str(&path.to_str().ok_or(anyhow!("Invalid path"))?);
@@ -23,6 +35,10 @@ impl MDItem {
         Ok(Self(item))
     }
 
+    /// Retrieves all available attribute names for this MDItem.
+    /// 
+    /// # Returns
+    /// * `Vec<String>` - A vector of attribute name strings
     pub fn get_attribute_names(&self) -> Vec<String> {
         unsafe { MDItemCopyAttributeNames(&self.0) }
             .map(|array| unsafe {
@@ -40,12 +56,23 @@ impl MDItem {
             .unwrap_or_default()
     }
 
+    /// Gets a specific attribute from the MDItem.
+    /// 
+    /// # Arguments
+    /// * `name` - The name of the attribute to retrieve
+    /// 
+    /// # Returns
+    /// * `Option<CFRetained<T>>` - The attribute value cast to the specified type, or None if not available
     pub fn get_attribute<T: Sized + ConcreteType>(&self, name: &str) -> Option<CFRetained<T>> {
         let name = CFString::from_str(name);
         let value = unsafe { MDItemCopyAttribute(&self.0, &name) }?;
         value.downcast::<T>().ok()
     }
 
+    /// Retrieves the file path of this MDItem.
+    /// 
+    /// # Returns
+    /// * `Option<PathBuf>` - The file path, or None if not available
     pub fn path(&self) -> Option<PathBuf> {
         self.get_attribute::<CFString>("kMDItemPath").map(|path| {
             let path_str = (&*path).to_string();
@@ -53,6 +80,10 @@ impl MDItem {
         })
     }
 
+    /// Retrieves the display name of this MDItem.
+    /// 
+    /// # Returns
+    /// * `Option<String>` - The display name, or None if not available
     pub fn display_name(&self) -> Option<String> {
         self.get_attribute::<CFString>("kMDItemDisplayName")
             .map(|name| {
