@@ -54,6 +54,25 @@ for item in results {
 }
 ```
 
+### Searching Applications
+
+```rust
+use mdquery_rs::{MDQueryBuilder, MDQueryScope};
+
+// Find applications with "Safari" in their name
+let query = MDQueryBuilder::default()
+    .name_like("Safari")
+    .is_app()
+    .build(vec![MDQueryScope::Computer], Some(5))
+    .unwrap();
+
+let results = query.execute().unwrap();
+for item in results {
+    println!("Application: {:?}", item.path());
+    println!("Display name: {:?}", item.display_name());
+}
+```
+
 ## Contributing
 
 Contributions and issue reports are welcome!
