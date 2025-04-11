@@ -11,7 +11,7 @@ pub enum MDQueryScope {
 }
 
 impl MDQueryScope {
-    pub(crate) fn into_scope_string(&self) -> String {
+    pub(crate) fn into_scope_string(self) -> String {
         match self {
             MDQueryScope::Home => "kMDQueryScopeHome".to_string(),
             MDQueryScope::Computer => "kMDQueryScopeComputer".to_string(),

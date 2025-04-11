@@ -94,7 +94,7 @@ impl MDQuery {
                         &CFString::from_str(MDItemKey::Path.as_str()),
                     ) {
                         if let Ok(path_str) = value.downcast::<CFString>() {
-                            let path = (&*path_str).to_string();
+                            let path = (*path_str).to_string();
                             if let Ok(item) = MDItem::from_path(&path) {
                                 items.push(item);
                             }

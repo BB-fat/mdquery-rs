@@ -25,7 +25,7 @@ impl MDItem {
     /// * Returns an error if the path is invalid or if the MDItem creation fails
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref().canonicalize()?;
-        let path_str = CFString::from_str(&path.to_str().ok_or(anyhow!("Invalid path"))?);
+        let path_str = CFString::from_str(path.to_str().ok_or(anyhow!("Invalid path"))?);
         let item =
             unsafe { MDItemCreate(None, &path_str) }.ok_or(anyhow!("Failed to create MDItem"))?;
         Ok(Self(item))
@@ -72,7 +72,7 @@ impl MDItem {
     pub fn path(&self) -> Option<PathBuf> {
         self.get_attribute::<CFString>(MDItemKey::Path.as_str())
             .map(|path| {
-                let path_str = (&*path).to_string();
+                let path_str = (*path).to_string();
                 PathBuf::from(path_str)
             })
     }
@@ -84,8 +84,8 @@ impl MDItem {
     pub fn display_name(&self) -> Option<String> {
         self.get_attribute::<CFString>(MDItemKey::DisplayName.as_str())
             .map(|name| {
-                let name_str = (&*name).to_string();
-                name_str
+                
+                (*name).to_string()
             })
     }
 }
