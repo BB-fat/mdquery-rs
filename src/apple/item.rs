@@ -13,10 +13,6 @@ use std::{
 pub struct MDItem(CFRetained<CoreMDItem>);
 
 impl MDItem {
-    pub(super) fn new(item: CFRetained<CoreMDItem>) -> Self {
-        Self(item)
-    }
-
     /// Creates a new MDItem from a file path.
     ///
     /// # Arguments
