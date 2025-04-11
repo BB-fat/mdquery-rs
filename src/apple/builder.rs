@@ -13,7 +13,7 @@ use std::fmt::Display;
 /// # Examples
 ///
 /// ```
-/// use mdquery_rs::apple::{MDQueryBuilder, MDQueryScope};
+/// use mdquery_rs::{MDQueryBuilder, MDQueryScope};
 ///
 /// // Find files containing "document" in their name
 /// let query = MDQueryBuilder::default()
@@ -232,6 +232,8 @@ pub enum MDItemKey {
     Size,
     /// The UTI (Uniform Type Identifier) of the item
     ContentType,
+    /// The path of the item
+    Path,
 }
 
 impl MDItemKey {
@@ -248,6 +250,7 @@ impl MDItemKey {
             MDItemKey::LastUsedDate => "kMDItemLastUsedDate",
             MDItemKey::Size => "kMDItemFSSize",
             MDItemKey::ContentType => "kMDItemContentType",
+            MDItemKey::Path => "kMDItemPath",
         }
     }
 

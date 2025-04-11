@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
 use objc2_core_foundation::{
-    CFAllocator, CFArray, CFIndex, CFOptionFlags, CFRetained, CFString, CFType, Type
+    CFAllocator, CFArray, CFIndex, CFOptionFlags, CFRetained, CFString, CFType, Type,
 };
-use std::ptr::NonNull;
+use std::{ffi::c_void, ptr::NonNull};
 
 #[repr(C)]
 pub(super) struct CoreMDQuery([u8; 0]);
@@ -39,22 +39,6 @@ pub(super) unsafe extern "C-unwind" fn MDQueryCreate(
             sorting_attrs,
         )
     };
-    ret.map(|ret| unsafe { CFRetained::from_raw(ret) })
-}
-
-// https://developer.apple.com/documentation/coreservices/1413055-mdquerygetresultatindex?language=objc
-#[inline]
-pub(super) unsafe extern "C-unwind" fn MDQueryGetResultAtIndex(
-    query: &CoreMDQuery,
-    index: CFIndex,
-) -> Option<CFRetained<CoreMDItem>> {
-    extern "C-unwind" {
-        fn MDQueryGetResultAtIndex(
-            query: Option<&CoreMDQuery>,
-            index: CFIndex,
-        ) -> Option<NonNull<CoreMDItem>>;
-    }
-    let ret = unsafe { MDQueryGetResultAtIndex(Some(query), index) };
     ret.map(|ret| unsafe { CFRetained::from_raw(ret) })
 }
 
@@ -113,4 +97,7 @@ extern "C" {
 
     // https://developer.apple.com/documentation/coreservices/1413008-mdquerygetresultcount?language=objc
     pub(super) fn MDQueryGetResultCount(query: &CoreMDQuery) -> CFIndex;
+
+    // https://developer.apple.com/documentation/coreservices/1413055-mdquerygetresultatindex?language=objc
+    pub(super) fn MDQueryGetResultAtIndex(query: &CoreMDQuery, index: CFIndex) -> *const c_void;
 }

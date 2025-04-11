@@ -1,4 +1,4 @@
-use super::api::*;
+use super::{api::*, MDItemKey};
 use anyhow::{anyhow, Result};
 use objc2_core_foundation::{
     CFArrayGetCount, CFArrayGetValueAtIndex, CFIndex, CFRetained, CFString, ConcreteType,
@@ -18,13 +18,13 @@ impl MDItem {
     }
 
     /// Creates a new MDItem from a file path.
-    /// 
+    ///
     /// # Arguments
     /// * `path` - A path to a file or directory
-    /// 
+    ///
     /// # Returns
     /// * `Result<Self>` - A new MDItem instance or an error
-    /// 
+    ///
     /// # Errors
     /// * Returns an error if the path is invalid or if the MDItem creation fails
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -36,7 +36,7 @@ impl MDItem {
     }
 
     /// Retrieves all available attribute names for this MDItem.
-    /// 
+    ///
     /// # Returns
     /// * `Vec<String>` - A vector of attribute name strings
     pub fn get_attribute_names(&self) -> Vec<String> {
@@ -57,10 +57,10 @@ impl MDItem {
     }
 
     /// Gets a specific attribute from the MDItem.
-    /// 
+    ///
     /// # Arguments
     /// * `name` - The name of the attribute to retrieve
-    /// 
+    ///
     /// # Returns
     /// * `Option<CFRetained<T>>` - The attribute value cast to the specified type, or None if not available
     pub fn get_attribute<T: Sized + ConcreteType>(&self, name: &str) -> Option<CFRetained<T>> {
@@ -70,22 +70,23 @@ impl MDItem {
     }
 
     /// Retrieves the file path of this MDItem.
-    /// 
+    ///
     /// # Returns
     /// * `Option<PathBuf>` - The file path, or None if not available
     pub fn path(&self) -> Option<PathBuf> {
-        self.get_attribute::<CFString>("kMDItemPath").map(|path| {
-            let path_str = (&*path).to_string();
-            PathBuf::from(path_str)
-        })
+        self.get_attribute::<CFString>(MDItemKey::Path.as_str())
+            .map(|path| {
+                let path_str = (&*path).to_string();
+                PathBuf::from(path_str)
+            })
     }
 
     /// Retrieves the display name of this MDItem.
-    /// 
+    ///
     /// # Returns
     /// * `Option<String>` - The display name, or None if not available
     pub fn display_name(&self) -> Option<String> {
-        self.get_attribute::<CFString>("kMDItemDisplayName")
+        self.get_attribute::<CFString>(MDItemKey::DisplayName.as_str())
             .map(|name| {
                 let name_str = (&*name).to_string();
                 name_str

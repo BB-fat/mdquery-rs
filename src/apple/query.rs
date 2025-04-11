@@ -1,8 +1,8 @@
-use super::api::*;
+use super::{api::*, MDItemKey};
 use super::{MDItem, MDQueryBuilder, MDQueryScope};
 use anyhow::{anyhow, Result};
 use objc2_core_foundation::{CFArrayCreate, CFIndex, CFRetained, CFString};
-use std::ptr;
+use std::ptr::{self, NonNull};
 
 /// A wrapper around macOS Spotlight search query API.
 /// Provides functionality to create and execute metadata queries.
@@ -78,8 +78,7 @@ impl MDQuery {
     /// A Result containing a vector of MDItem objects on success, or an error if execution fails.
     pub fn execute(self) -> Result<Vec<MDItem>> {
         unsafe {
-            let query = self.0.clone();
-            let success = MDQueryExecute(&query, MDQueryOptionsFlags::SYNCHRONOUS as _);
+            let success = MDQueryExecute(&self.0, MDQueryOptionsFlags::SYNCHRONOUS as _);
 
             if !success {
                 return Err(anyhow!("MDQuery execute failed."));
@@ -88,8 +87,19 @@ impl MDQuery {
             let count = MDQueryGetResultCount(&self.0);
             let mut items = Vec::with_capacity(count as usize);
             for i in 0..count {
-                if let Some(item) = MDQueryGetResultAtIndex(&self.0, i) {
-                    items.push(MDItem::new(item));
+                let item_ptr = MDQueryGetResultAtIndex(&self.0, i as _) as *mut CoreMDItem;
+                if let Some(item) = NonNull::new(item_ptr) {
+                    if let Some(value) = MDItemCopyAttribute(
+                        item.as_ref(),
+                        &CFString::from_str(MDItemKey::Path.as_str()),
+                    ) {
+                        if let Ok(path_str) = value.downcast::<CFString>() {
+                            let path = (&*path_str).to_string();
+                            if let Ok(item) = MDItem::from_path(&path) {
+                                items.push(item);
+                            }
+                        }
+                    }
                 }
             }
             Ok(items)
