@@ -1,6 +1,6 @@
 [package]
 name = "mdquery-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A Rust binding library for macOS Spotlight search using Metadata Query API"
 authors = ["BB-fat <bbfat3047@qq.com>"]
@@ -10,7 +10,7 @@ keywords = ["macos", "spotlight", "search", "metadata", "finder"]
 categories = ["api-bindings", "filesystem", "os::macos-apis"]
 readme = "README.md"
 
-[target.'cfg(target_vendor = "apple")'.dependencies]
+[target.'cfg(any(target_vendor = "apple", doc))'.dependencies]
 anyhow = "1"
 objc2 = "0.6"
 objc2-core-foundation = "0.3"
