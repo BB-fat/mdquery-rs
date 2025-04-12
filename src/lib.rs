@@ -1,5 +1,5 @@
-#[cfg(target_vendor = "apple")]
+#[cfg(any(target_vendor = "apple", doc))]
 mod apple;
 
-#[cfg(target_vendor = "apple")]
+#[cfg(any(target_vendor = "apple", doc))]
 pub use apple::*;
