@@ -1,8 +1,5 @@
-use super::{MDQuery, MDQueryScope};
-
+use super::{MDItemKey, MDQuery, MDQueryScope};
 use anyhow::Result;
-use std::fmt;
-use std::fmt::Display;
 
 /// Builder for constructing MDQuery instances with a fluent interface.
 ///
@@ -199,6 +196,86 @@ impl MDQueryBuilder {
     }
 }
 
+/// A structure for building complex, nested query conditions with logical operators.
+///
+/// `MDQueryCondition` allows for creating sophisticated search expressions by combining
+/// multiple conditions with either logical AND (All) or logical OR (Any) operators.
+/// It can be used to build complex queries that are not easily expressible with the
+/// simple chained methods of `MDQueryBuilder`.
+pub struct MDQueryCondition {
+    /// Specifies whether the expressions should be combined with logical AND (All) or OR (Any).
+    condition_type: MDQueryConditionType,
+    /// The list of expressions to be combined according to the condition_type.
+    expressions: Vec<MDQueryConditionExpression>,
+}
+
+impl MDQueryCondition {
+    /// Converts the condition structure into a query expression string.
+    ///
+    /// This method recursively processes the condition structure, combining all expressions
+    /// according to the condition_type (All = AND, Any = OR) and returning a properly
+    /// formatted query string that can be used with MDQuery.
+    ///
+    /// # Returns
+    /// A string representation of the combined query expression, properly parenthesized.
+    pub fn into_expression(self) -> String {
+        let expr = match self.condition_type {
+            MDQueryConditionType::All => self
+                .expressions
+                .into_iter()
+                .map(|e| e.into_expression())
+                .collect::<Vec<_>>()
+                .join(" && "),
+            MDQueryConditionType::Any => self
+                .expressions
+                .into_iter()
+                .map(|e| e.into_expression())
+                .collect::<Vec<_>>()
+                .join(" || "),
+        };
+        format!("({})", expr)
+    }
+}
+
+/// Defines the logical operation to apply when combining multiple expressions.
+///
+/// This enum determines how the expressions within an `MDQueryCondition` are combined:
+/// - `All`: Combines expressions with logical AND (&&)
+/// - `Any`: Combines expressions with logical OR (||)
+pub enum MDQueryConditionType {
+    /// Combines all expressions with logical AND (&&)
+    All,
+    /// Combines all expressions with logical OR (||)
+    Any,
+}
+
+/// Represents either a nested condition or a raw query expression string.
+///
+/// This enum allows for building complex, nested query structures by combining
+/// both raw expression strings and other condition structures.
+pub enum MDQueryConditionExpression {
+    /// A nested condition structure
+    Condition(MDQueryCondition),
+    /// A raw query expression string
+    Expression(String),
+}
+
+impl MDQueryConditionExpression {
+    /// Converts the expression into a query string.
+    ///
+    /// For nested conditions, this recursively processes the condition structure.
+    /// For raw expressions, it wraps the expression in parentheses.
+    ///
+    /// # Returns
+    /// A properly formatted query string representation of this expression.
+    pub fn into_expression(self) -> String {
+        match self {
+            MDQueryConditionExpression::Condition(c) => c.into_expression(),
+            MDQueryConditionExpression::Expression(e) => format!("({})", e),
+        }
+    }
+}
+
 /// Comparison operators for metadata query expressions.
 pub enum MDQueryCompareOp {
     /// Greater than (>)
@@ -226,64 +303,6 @@ impl MDQueryCompareOp {
             MDQueryCompareOp::GreaterThanOrEqual => ">=",
             MDQueryCompareOp::LessThanOrEqual => "<=",
         }
-    }
-}
-
-/// Metadata attribute keys that can be used in queries.
-///
-/// These keys correspond to macOS Spotlight metadata attributes.
-pub enum MDItemKey {
-    /// The user-visible display name of the item
-    DisplayName,
-    /// The filename of the item
-    FSName,
-    /// The date the item's content was last modified
-    ModificationDate,
-    /// The date the item's content was created
-    CreationDate,
-    /// The date the item was last used/opened
-    LastUsedDate,
-    /// The size of the item in bytes
-    Size,
-    /// The UTI (Uniform Type Identifier) of the item
-    ContentType,
-    /// The path of the item
-    Path,
-}
-
-impl MDItemKey {
-    /// Returns the Spotlight API string representation of the key.
-    ///
-    /// # Returns
-    /// The string constant used by the Spotlight API for this key.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            MDItemKey::DisplayName => "kMDItemDisplayName",
-            MDItemKey::FSName => "kMDItemFSName",
-            MDItemKey::ModificationDate => "kMDItemContentModificationDate",
-            MDItemKey::CreationDate => "kMDItemContentCreationDate",
-            MDItemKey::LastUsedDate => "kMDItemLastUsedDate",
-            MDItemKey::Size => "kMDItemFSSize",
-            MDItemKey::ContentType => "kMDItemContentType",
-            MDItemKey::Path => "kMDItemPath",
-        }
-    }
-
-    /// Checks if this key represents a date/time attribute.
-    ///
-    /// # Returns
-    /// `true` if this key is a time-related attribute, `false` otherwise.
-    pub fn is_time(&self) -> bool {
-        matches!(
-            self,
-            MDItemKey::ModificationDate | MDItemKey::CreationDate | MDItemKey::LastUsedDate
-        )
-    }
-}
-
-impl Display for MDItemKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
     }
 }
 
@@ -370,5 +389,68 @@ mod tests {
             .unwrap();
         let results = query.execute().unwrap();
         assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn test_condition_all() {
+        let condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::All,
+            expressions: vec![
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"test.txt\"".into()),
+                MDQueryConditionExpression::Expression("kMDItemTextContent == \"hello\"".into()),
+            ],
+        };
+        assert_eq!(
+            condition.into_expression(),
+            "((kMDItemFSName == \"test.txt\") && (kMDItemTextContent == \"hello\"))"
+        );
+    }
+
+    #[test]
+    fn test_condition_any() {
+        let condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::Any,
+            expressions: vec![
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"doc.pdf\"".into()),
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"doc.txt\"".into()),
+            ],
+        };
+        assert_eq!(
+            condition.into_expression(),
+            "((kMDItemFSName == \"doc.pdf\") || (kMDItemFSName == \"doc.txt\"))"
+        );
+    }
+
+    #[test]
+    fn test_nested_condition() {
+        let inner_condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::Any,
+            expressions: vec![
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"*.txt\"".into()),
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"*.pdf\"".into()),
+            ],
+        };
+
+        let outer_condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::All,
+            expressions: vec![
+                MDQueryConditionExpression::Condition(inner_condition),
+                MDQueryConditionExpression::Expression("kMDItemTextContent == \"test\"".into()),
+            ],
+        };
+
+        assert_eq!(
+            outer_condition.into_expression(),
+            "(((kMDItemFSName == \"*.txt\") || (kMDItemFSName == \"*.pdf\")) && (kMDItemTextContent == \"test\"))"
+        );
+    }
+
+    #[test]
+    fn test_empty_condition() {
+        let condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::All,
+            expressions: vec![],
+        };
+        assert_eq!(condition.into_expression(), "()");
     }
 }
