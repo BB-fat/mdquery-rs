@@ -25,7 +25,7 @@ use anyhow::Result;
 /// ```
 #[derive(Default)]
 pub struct MDQueryBuilder {
-    expressions: Vec<String>,
+    condition: MDQueryCondition,
 }
 
 impl MDQueryBuilder {
@@ -41,25 +41,37 @@ impl MDQueryBuilder {
     /// # Errors
     /// Returns an error if no expressions were added to the builder.
     pub fn build(self, scopes: Vec<MDQueryScope>, max_count: Option<usize>) -> Result<MDQuery> {
-        if self.expressions.is_empty() {
+        if self.condition.is_empty() {
             anyhow::bail!("No expressions to build");
         }
-        let query = self.gen_query();
+        let query = self.condition.into_expression();
         MDQuery::new(&query, Some(scopes), max_count)
     }
 
-    /// Generates the final query string by joining all expressions with AND operators.
+    /// Creates a new builder from a condition.
+    ///
+    /// # Parameters
+    /// * `condition` - The condition to add to the builder
     ///
     /// # Returns
-    /// A string representation of the combined query.
-    fn gen_query(&self) -> String {
-        self.expressions
-            .iter()
-            .map(|e| format!("({})", e))
-            .collect::<Vec<_>>()
-            .join(" && ")
+    /// Self for method chaining
+    pub fn from_condition(condition: MDQueryCondition) -> Self {
+        Self { condition }
     }
 
+    /// Creates a new builder from a raw query string.
+    ///
+    /// # Parameters
+    /// * `query` - The raw query string
+    ///
+    /// # Returns
+    /// Self for method chaining
+    pub fn from_raw(query: &str) -> Self {
+        let mut condition = MDQueryCondition::default();
+        condition.add(MDQueryConditionExpression::Expression(query.to_string()));
+        Self { condition }
+    }
+    
     /// Adds an expression to match items whose display name contains the specified string.
     ///
     /// This performs a case-insensitive substring search and supports Chinese Pinyin.
@@ -70,8 +82,12 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn name_like(mut self, name: &str) -> Self {
-        self.expressions
-            .push(format!("{} == \"*{}*\"w", MDItemKey::DisplayName, name));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"*{}*\"w",
+                MDItemKey::DisplayName,
+                name
+            )));
         self
     }
 
@@ -85,8 +101,12 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn name_is(mut self, name: &str) -> Self {
-        self.expressions
-            .push(format!("{} == \"{}\"c", MDItemKey::DisplayName, name));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"{}\"c",
+                MDItemKey::DisplayName,
+                name
+            )));
         self
     }
 
@@ -111,12 +131,13 @@ impl MDQueryBuilder {
             .unwrap()
             .to_rfc3339();
 
-        self.expressions.push(format!(
-            "{} {} $time.iso({})",
-            key,
-            op.into_query_string(),
-            time_str
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} {} $time.iso({})",
+                key,
+                op.into_query_string(),
+                time_str
+            )));
         self
     }
 
@@ -129,12 +150,13 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn size(mut self, op: MDQueryCompareOp, size: u64) -> Self {
-        self.expressions.push(format!(
-            "{} {} {}",
-            MDItemKey::Size,
-            op.into_query_string(),
-            size
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} {} {}",
+                MDItemKey::Size,
+                op.into_query_string(),
+                size
+            )));
         self
     }
 
@@ -149,12 +171,13 @@ impl MDQueryBuilder {
     /// # Note
     /// Special directory types such as app bundles are not included in the directory scope.
     pub fn is_dir(mut self, value: bool) -> Self {
-        self.expressions.push(format!(
-            "{} {} \"{}\"",
-            MDItemKey::ContentType,
-            if value { "==" } else { "!=" },
-            "public.folder"
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} {} \"{}\"",
+                MDItemKey::ContentType,
+                if value { "==" } else { "!=" },
+                "public.folder"
+            )));
         self
     }
 
@@ -174,8 +197,12 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn extension(mut self, ext: &str) -> Self {
-        self.expressions
-            .push(format!("{} == \"*.{}\"c", MDItemKey::FSName, ext));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"*.{}\"c",
+                MDItemKey::FSName,
+                ext
+            )));
         self
     }
 
@@ -187,11 +214,12 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn content_type(mut self, content_type: &str) -> Self {
-        self.expressions.push(format!(
-            "{} == \"{}\"",
-            MDItemKey::ContentType,
-            content_type
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"{}\"",
+                MDItemKey::ContentType,
+                content_type
+            )));
         self
     }
 }
@@ -207,6 +235,15 @@ pub struct MDQueryCondition {
     condition_type: MDQueryConditionType,
     /// The list of expressions to be combined according to the condition_type.
     expressions: Vec<MDQueryConditionExpression>,
+}
+
+impl Default for MDQueryCondition {
+    fn default() -> Self {
+        Self {
+            condition_type: MDQueryConditionType::All,
+            expressions: Vec::new(),
+        }
+    }
 }
 
 impl MDQueryCondition {
@@ -234,6 +271,22 @@ impl MDQueryCondition {
                 .join(" || "),
         };
         format!("({})", expr)
+    }
+
+    /// Add a new expression to the condition.
+    ///
+    /// # Parameters
+    /// * `expr` - The expression to add to the condition
+    pub fn add(&mut self, expr: MDQueryConditionExpression) {
+        self.expressions.push(expr);
+    }
+
+    /// Checks if the condition is empty.
+    ///
+    /// # Returns
+    /// True if the condition is empty, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.expressions.is_empty()
     }
 }
 
