@@ -114,8 +114,12 @@ impl MDQueryBuilder {
             .unwrap()
             .to_rfc3339();
 
-        self.expressions
-            .push(format!("{} {} {}", key, op.into_query_string(), time_str));
+        self.expressions.push(format!(
+            "{} {} $time.iso({})",
+            key,
+            op.into_query_string(),
+            time_str
+        ));
         self
     }
 
@@ -156,7 +160,7 @@ impl MDQueryBuilder {
         ));
         self
     }
-    
+
     /// Adds an expression to filter items based on whether they are application bundles.
     ///
     /// # Returns
@@ -311,6 +315,60 @@ mod tests {
             .unwrap();
         let results = query.execute().unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].path(), Some(PathBuf::from("/Applications/Safari.app")));
+        assert_eq!(
+            results[0].path(),
+            Some(PathBuf::from("/Applications/Safari.app"))
+        );
+    }
+
+    #[test]
+    fn test_extension() {
+        let builder = MDQueryBuilder::default().extension("txt");
+        let query = builder
+            .build(vec![MDQueryScope::Computer], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
+        assert!(results[0]
+            .path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .ends_with(".txt"));
+    }
+
+    #[test]
+    fn test_time_search() {
+        let now = chrono::Utc::now().timestamp();
+        let builder = MDQueryBuilder::default().time(
+            MDItemKey::ModificationDate,
+            MDQueryCompareOp::LessThan,
+            now,
+        );
+        let query = builder
+            .build(vec![MDQueryScope::from_path("/Applications")], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn test_size_filter() {
+        let builder = MDQueryBuilder::default().size(MDQueryCompareOp::GreaterThan, 1024 * 1024); // > 1MB
+        let query = builder
+            .build(vec![MDQueryScope::Computer], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn test_is_dir() {
+        let builder = MDQueryBuilder::default().is_dir(true);
+        let query = builder
+            .build(vec![MDQueryScope::Computer], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
     }
 }

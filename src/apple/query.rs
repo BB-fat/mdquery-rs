@@ -141,4 +141,26 @@ mod tests {
             PathBuf::from("/Applications/Safari.app")
         );
     }
+
+    #[test]
+    fn test_empty_result() {
+        let query = MDQuery::new(
+            "kMDItemFSName = \"ThisFileDoesNotExist123456789.xyz\"",
+            Some(vec![MDQueryScope::Computer]),
+            None,
+        )
+        .unwrap();
+        let items = query.execute().unwrap();
+        assert_eq!(items.len(), 0);
+    }
+
+    #[test]
+    fn test_invalid_query() {
+        let result = MDQuery::new(
+            "invalid query syntax !!!",
+            Some(vec![MDQueryScope::Computer]),
+            None,
+        );
+        assert!(result.is_err());
+    }
 }
