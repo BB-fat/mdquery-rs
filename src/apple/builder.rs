@@ -1,8 +1,5 @@
-use super::{MDQuery, MDQueryScope};
-
+use super::{MDItemKey, MDQuery, MDQueryScope};
 use anyhow::Result;
-use std::fmt;
-use std::fmt::Display;
 
 /// Builder for constructing MDQuery instances with a fluent interface.
 ///
@@ -28,7 +25,7 @@ use std::fmt::Display;
 /// ```
 #[derive(Default)]
 pub struct MDQueryBuilder {
-    expressions: Vec<String>,
+    condition: MDQueryCondition,
 }
 
 impl MDQueryBuilder {
@@ -44,25 +41,37 @@ impl MDQueryBuilder {
     /// # Errors
     /// Returns an error if no expressions were added to the builder.
     pub fn build(self, scopes: Vec<MDQueryScope>, max_count: Option<usize>) -> Result<MDQuery> {
-        if self.expressions.is_empty() {
+        if self.condition.is_empty() {
             anyhow::bail!("No expressions to build");
         }
-        let query = self.gen_query();
+        let query = self.condition.into_expression();
         MDQuery::new(&query, Some(scopes), max_count)
     }
 
-    /// Generates the final query string by joining all expressions with AND operators.
+    /// Creates a new builder from a condition.
+    ///
+    /// # Parameters
+    /// * `condition` - The condition to add to the builder
     ///
     /// # Returns
-    /// A string representation of the combined query.
-    fn gen_query(&self) -> String {
-        self.expressions
-            .iter()
-            .map(|e| format!("({})", e))
-            .collect::<Vec<_>>()
-            .join(" && ")
+    /// Self for method chaining
+    pub fn from_condition(condition: MDQueryCondition) -> Self {
+        Self { condition }
     }
 
+    /// Creates a new builder from a raw query string.
+    ///
+    /// # Parameters
+    /// * `query` - The raw query string
+    ///
+    /// # Returns
+    /// Self for method chaining
+    pub fn from_raw(query: &str) -> Self {
+        let mut condition = MDQueryCondition::default();
+        condition.add(MDQueryConditionExpression::Expression(query.to_string()));
+        Self { condition }
+    }
+    
     /// Adds an expression to match items whose display name contains the specified string.
     ///
     /// This performs a case-insensitive substring search and supports Chinese Pinyin.
@@ -73,8 +82,12 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn name_like(mut self, name: &str) -> Self {
-        self.expressions
-            .push(format!("{} == \"*{}*\"w", MDItemKey::DisplayName, name));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"*{}*\"w",
+                MDItemKey::DisplayName,
+                name
+            )));
         self
     }
 
@@ -88,8 +101,12 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn name_is(mut self, name: &str) -> Self {
-        self.expressions
-            .push(format!("{} == \"{}\"c", MDItemKey::DisplayName, name));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"{}\"c",
+                MDItemKey::DisplayName,
+                name
+            )));
         self
     }
 
@@ -114,12 +131,13 @@ impl MDQueryBuilder {
             .unwrap()
             .to_rfc3339();
 
-        self.expressions.push(format!(
-            "{} {} $time.iso({})",
-            key,
-            op.into_query_string(),
-            time_str
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} {} $time.iso({})",
+                key,
+                op.into_query_string(),
+                time_str
+            )));
         self
     }
 
@@ -132,12 +150,13 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn size(mut self, op: MDQueryCompareOp, size: u64) -> Self {
-        self.expressions.push(format!(
-            "{} {} {}",
-            MDItemKey::Size,
-            op.into_query_string(),
-            size
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} {} {}",
+                MDItemKey::Size,
+                op.into_query_string(),
+                size
+            )));
         self
     }
 
@@ -152,12 +171,13 @@ impl MDQueryBuilder {
     /// # Note
     /// Special directory types such as app bundles are not included in the directory scope.
     pub fn is_dir(mut self, value: bool) -> Self {
-        self.expressions.push(format!(
-            "{} {} \"{}\"",
-            MDItemKey::ContentType,
-            if value { "==" } else { "!=" },
-            "public.folder"
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} {} \"{}\"",
+                MDItemKey::ContentType,
+                if value { "==" } else { "!=" },
+                "public.folder"
+            )));
         self
     }
 
@@ -177,8 +197,12 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn extension(mut self, ext: &str) -> Self {
-        self.expressions
-            .push(format!("{} == \"*.{}\"c", MDItemKey::FSName, ext));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"*.{}\"c",
+                MDItemKey::FSName,
+                ext
+            )));
         self
     }
 
@@ -190,12 +214,118 @@ impl MDQueryBuilder {
     /// # Returns
     /// Self for method chaining
     pub fn content_type(mut self, content_type: &str) -> Self {
-        self.expressions.push(format!(
-            "{} == \"{}\"",
-            MDItemKey::ContentType,
-            content_type
-        ));
+        self.condition
+            .add(MDQueryConditionExpression::Expression(format!(
+                "{} == \"{}\"",
+                MDItemKey::ContentType,
+                content_type
+            )));
         self
+    }
+}
+
+/// A structure for building complex, nested query conditions with logical operators.
+///
+/// `MDQueryCondition` allows for creating sophisticated search expressions by combining
+/// multiple conditions with either logical AND (All) or logical OR (Any) operators.
+/// It can be used to build complex queries that are not easily expressible with the
+/// simple chained methods of `MDQueryBuilder`.
+pub struct MDQueryCondition {
+    /// Specifies whether the expressions should be combined with logical AND (All) or OR (Any).
+    condition_type: MDQueryConditionType,
+    /// The list of expressions to be combined according to the condition_type.
+    expressions: Vec<MDQueryConditionExpression>,
+}
+
+impl Default for MDQueryCondition {
+    fn default() -> Self {
+        Self {
+            condition_type: MDQueryConditionType::All,
+            expressions: Vec::new(),
+        }
+    }
+}
+
+impl MDQueryCondition {
+    /// Converts the condition structure into a query expression string.
+    ///
+    /// This method recursively processes the condition structure, combining all expressions
+    /// according to the condition_type (All = AND, Any = OR) and returning a properly
+    /// formatted query string that can be used with MDQuery.
+    ///
+    /// # Returns
+    /// A string representation of the combined query expression, properly parenthesized.
+    pub fn into_expression(self) -> String {
+        let expr = match self.condition_type {
+            MDQueryConditionType::All => self
+                .expressions
+                .into_iter()
+                .map(|e| e.into_expression())
+                .collect::<Vec<_>>()
+                .join(" && "),
+            MDQueryConditionType::Any => self
+                .expressions
+                .into_iter()
+                .map(|e| e.into_expression())
+                .collect::<Vec<_>>()
+                .join(" || "),
+        };
+        format!("({})", expr)
+    }
+
+    /// Add a new expression to the condition.
+    ///
+    /// # Parameters
+    /// * `expr` - The expression to add to the condition
+    pub fn add(&mut self, expr: MDQueryConditionExpression) {
+        self.expressions.push(expr);
+    }
+
+    /// Checks if the condition is empty.
+    ///
+    /// # Returns
+    /// True if the condition is empty, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.expressions.is_empty()
+    }
+}
+
+/// Defines the logical operation to apply when combining multiple expressions.
+///
+/// This enum determines how the expressions within an `MDQueryCondition` are combined:
+/// - `All`: Combines expressions with logical AND (&&)
+/// - `Any`: Combines expressions with logical OR (||)
+pub enum MDQueryConditionType {
+    /// Combines all expressions with logical AND (&&)
+    All,
+    /// Combines all expressions with logical OR (||)
+    Any,
+}
+
+/// Represents either a nested condition or a raw query expression string.
+///
+/// This enum allows for building complex, nested query structures by combining
+/// both raw expression strings and other condition structures.
+pub enum MDQueryConditionExpression {
+    /// A nested condition structure
+    Condition(MDQueryCondition),
+    /// A raw query expression string
+    Expression(String),
+}
+
+impl MDQueryConditionExpression {
+    /// Converts the expression into a query string.
+    ///
+    /// For nested conditions, this recursively processes the condition structure.
+    /// For raw expressions, it wraps the expression in parentheses.
+    ///
+    /// # Returns
+    /// A properly formatted query string representation of this expression.
+    pub fn into_expression(self) -> String {
+        match self {
+            MDQueryConditionExpression::Condition(c) => c.into_expression(),
+            MDQueryConditionExpression::Expression(e) => format!("({})", e),
+        }
     }
 }
 
@@ -226,64 +356,6 @@ impl MDQueryCompareOp {
             MDQueryCompareOp::GreaterThanOrEqual => ">=",
             MDQueryCompareOp::LessThanOrEqual => "<=",
         }
-    }
-}
-
-/// Metadata attribute keys that can be used in queries.
-///
-/// These keys correspond to macOS Spotlight metadata attributes.
-pub enum MDItemKey {
-    /// The user-visible display name of the item
-    DisplayName,
-    /// The filename of the item
-    FSName,
-    /// The date the item's content was last modified
-    ModificationDate,
-    /// The date the item's content was created
-    CreationDate,
-    /// The date the item was last used/opened
-    LastUsedDate,
-    /// The size of the item in bytes
-    Size,
-    /// The UTI (Uniform Type Identifier) of the item
-    ContentType,
-    /// The path of the item
-    Path,
-}
-
-impl MDItemKey {
-    /// Returns the Spotlight API string representation of the key.
-    ///
-    /// # Returns
-    /// The string constant used by the Spotlight API for this key.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            MDItemKey::DisplayName => "kMDItemDisplayName",
-            MDItemKey::FSName => "kMDItemFSName",
-            MDItemKey::ModificationDate => "kMDItemContentModificationDate",
-            MDItemKey::CreationDate => "kMDItemContentCreationDate",
-            MDItemKey::LastUsedDate => "kMDItemLastUsedDate",
-            MDItemKey::Size => "kMDItemFSSize",
-            MDItemKey::ContentType => "kMDItemContentType",
-            MDItemKey::Path => "kMDItemPath",
-        }
-    }
-
-    /// Checks if this key represents a date/time attribute.
-    ///
-    /// # Returns
-    /// `true` if this key is a time-related attribute, `false` otherwise.
-    pub fn is_time(&self) -> bool {
-        matches!(
-            self,
-            MDItemKey::ModificationDate | MDItemKey::CreationDate | MDItemKey::LastUsedDate
-        )
-    }
-}
-
-impl Display for MDItemKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
     }
 }
 
@@ -370,5 +442,68 @@ mod tests {
             .unwrap();
         let results = query.execute().unwrap();
         assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn test_condition_all() {
+        let condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::All,
+            expressions: vec![
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"test.txt\"".into()),
+                MDQueryConditionExpression::Expression("kMDItemTextContent == \"hello\"".into()),
+            ],
+        };
+        assert_eq!(
+            condition.into_expression(),
+            "((kMDItemFSName == \"test.txt\") && (kMDItemTextContent == \"hello\"))"
+        );
+    }
+
+    #[test]
+    fn test_condition_any() {
+        let condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::Any,
+            expressions: vec![
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"doc.pdf\"".into()),
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"doc.txt\"".into()),
+            ],
+        };
+        assert_eq!(
+            condition.into_expression(),
+            "((kMDItemFSName == \"doc.pdf\") || (kMDItemFSName == \"doc.txt\"))"
+        );
+    }
+
+    #[test]
+    fn test_nested_condition() {
+        let inner_condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::Any,
+            expressions: vec![
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"*.txt\"".into()),
+                MDQueryConditionExpression::Expression("kMDItemFSName == \"*.pdf\"".into()),
+            ],
+        };
+
+        let outer_condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::All,
+            expressions: vec![
+                MDQueryConditionExpression::Condition(inner_condition),
+                MDQueryConditionExpression::Expression("kMDItemTextContent == \"test\"".into()),
+            ],
+        };
+
+        assert_eq!(
+            outer_condition.into_expression(),
+            "(((kMDItemFSName == \"*.txt\") || (kMDItemFSName == \"*.pdf\")) && (kMDItemTextContent == \"test\"))"
+        );
+    }
+
+    #[test]
+    fn test_empty_condition() {
+        let condition = MDQueryCondition {
+            condition_type: MDQueryConditionType::All,
+            expressions: vec![],
+        };
+        assert_eq!(condition.into_expression(), "()");
     }
 }
