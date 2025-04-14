@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 pub enum MDQueryScope {
     Home,
@@ -11,6 +11,10 @@ pub enum MDQueryScope {
 }
 
 impl MDQueryScope {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Self {
+        Self::Custom(path.as_ref().to_path_buf())
+    }
+
     pub(crate) fn into_scope_string(self) -> String {
         match self {
             MDQueryScope::Home => "kMDQueryScopeHome".to_string(),

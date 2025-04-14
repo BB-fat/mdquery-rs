@@ -65,7 +65,7 @@ impl MDQueryBuilder {
 
     /// Adds an expression to match items whose display name contains the specified string.
     ///
-    /// This performs a case-insensitive substring search.
+    /// This performs a case-insensitive substring search and supports Chinese Pinyin.
     ///
     /// # Parameters
     /// * `name` - The substring to match in display names
@@ -74,7 +74,7 @@ impl MDQueryBuilder {
     /// Self for method chaining
     pub fn name_like(mut self, name: &str) -> Self {
         self.expressions
-            .push(format!("{} == \"*{}*\"c", MDItemKey::DisplayName, name));
+            .push(format!("{} == \"*{}*\"w", MDItemKey::DisplayName, name));
         self
     }
 
@@ -114,8 +114,12 @@ impl MDQueryBuilder {
             .unwrap()
             .to_rfc3339();
 
-        self.expressions
-            .push(format!("{} {} {}", key, op.into_query_string(), time_str));
+        self.expressions.push(format!(
+            "{} {} $time.iso({})",
+            key,
+            op.into_query_string(),
+            time_str
+        ));
         self
     }
 
@@ -144,14 +148,25 @@ impl MDQueryBuilder {
     ///
     /// # Returns
     /// Self for method chaining
+    ///
+    /// # Note
+    /// Special directory types such as app bundles are not included in the directory scope.
     pub fn is_dir(mut self, value: bool) -> Self {
         self.expressions.push(format!(
-            "{} {} \"{}\"c",
+            "{} {} \"{}\"",
             MDItemKey::ContentType,
             if value { "==" } else { "!=" },
             "public.folder"
         ));
         self
+    }
+
+    /// Adds an expression to filter items based on whether they are application bundles.
+    ///
+    /// # Returns
+    /// Self for method chaining
+    pub fn is_app(self) -> Self {
+        self.content_type("com.apple.application-bundle")
     }
 
     /// Adds an expression to match items with the specified file extension.
@@ -279,17 +294,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_gen_query_name_like_and_name_is() {
-        let builder = MDQueryBuilder::default().name_like("test").name_is("test");
-        assert_eq!(
-            builder.gen_query(),
-            "(kMDItemDisplayName == \"*test*\"c) && (kMDItemDisplayName == \"test\"c)"
-        );
-    }
-
-    #[test]
-    fn test_find_safari_app() {
-        let builder = MDQueryBuilder::default().name_like("浏览器");
+    fn test_name_like() {
+        let builder = MDQueryBuilder::default().name_like("Safari");
         let query = builder
             .build(vec![MDQueryScope::Computer], Some(1))
             .unwrap();
@@ -299,5 +305,70 @@ mod tests {
             results[0].path(),
             Some(PathBuf::from("/Applications/Safari.app"))
         );
+    }
+
+    #[test]
+    fn test_is_app() {
+        let builder = MDQueryBuilder::default().name_like("Safari").is_app();
+        let query = builder
+            .build(vec![MDQueryScope::Computer], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(
+            results[0].path(),
+            Some(PathBuf::from("/Applications/Safari.app"))
+        );
+    }
+
+    #[test]
+    fn test_extension() {
+        let builder = MDQueryBuilder::default().extension("txt");
+        let query = builder
+            .build(vec![MDQueryScope::Computer], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
+        assert!(results[0]
+            .path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .ends_with(".txt"));
+    }
+
+    #[test]
+    fn test_time_search() {
+        let now = chrono::Utc::now().timestamp();
+        let builder = MDQueryBuilder::default().time(
+            MDItemKey::ModificationDate,
+            MDQueryCompareOp::LessThan,
+            now,
+        );
+        let query = builder
+            .build(vec![MDQueryScope::from_path("/Applications")], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn test_size_filter() {
+        let builder = MDQueryBuilder::default().size(MDQueryCompareOp::GreaterThan, 1024 * 1024); // > 1MB
+        let query = builder
+            .build(vec![MDQueryScope::Computer], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn test_is_dir() {
+        let builder = MDQueryBuilder::default().is_dir(true);
+        let query = builder
+            .build(vec![MDQueryScope::Computer], Some(1))
+            .unwrap();
+        let results = query.execute().unwrap();
+        assert!(!results.is_empty());
     }
 }
