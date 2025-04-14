@@ -1,6 +1,6 @@
 [package]
 name = "mdquery-rs"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2021"
 description = "A Rust binding library for macOS Spotlight search using Metadata Query API"
 authors = ["BB-fat <bbfat3047@qq.com>"]
