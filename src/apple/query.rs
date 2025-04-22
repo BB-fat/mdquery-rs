@@ -69,7 +69,7 @@ impl MDQuery {
             }
         }
 
-        Ok(MDQuery(md_query))
+        Ok(Self(md_query))
     }
 
     /// Executes the query and collects the results.

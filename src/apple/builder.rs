@@ -323,8 +323,8 @@ impl MDQueryConditionExpression {
     /// A properly formatted query string representation of this expression.
     pub fn into_expression(self) -> String {
         match self {
-            MDQueryConditionExpression::Condition(c) => c.into_expression(),
-            MDQueryConditionExpression::Expression(e) => format!("({})", e),
+            Self::Condition(c) => c.into_expression(),
+            Self::Expression(e) => format!("({})", e),
         }
     }
 }
@@ -350,11 +350,11 @@ impl MDQueryCompareOp {
     /// The string representation of the operator.
     fn into_query_string(self) -> &'static str {
         match self {
-            MDQueryCompareOp::GreaterThan => ">",
-            MDQueryCompareOp::LessThan => "<",
-            MDQueryCompareOp::Equal => "==",
-            MDQueryCompareOp::GreaterThanOrEqual => ">=",
-            MDQueryCompareOp::LessThanOrEqual => "<=",
+            Self::GreaterThan => ">",
+            Self::LessThan => "<",
+            Self::Equal => "==",
+            Self::GreaterThanOrEqual => ">=",
+            Self::LessThanOrEqual => "<=",
         }
     }
 }
