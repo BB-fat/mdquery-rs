@@ -98,7 +98,7 @@ mod tests {
     fn test_get_attribute_names() {
         let item = MDItem::from_path("/Applications/Safari.app").unwrap();
         let names = item.get_attribute_names();
-        assert!(names.len() > 0);
+        assert!(!names.is_empty());
     }
 
     #[test]

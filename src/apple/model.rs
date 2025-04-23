@@ -17,13 +17,13 @@ impl MDQueryScope {
 
     pub(crate) fn into_scope_string(self) -> String {
         match self {
-            MDQueryScope::Home => "kMDQueryScopeHome".to_string(),
-            MDQueryScope::Computer => "kMDQueryScopeComputer".to_string(),
-            MDQueryScope::Network => "kMDQueryScopeNetwork".to_string(),
-            MDQueryScope::AllIndexed => "kMDQueryScopeAllIndexed".to_string(),
-            MDQueryScope::ComputerIndexed => "kMDQueryScopeComputerIndexed".to_string(),
-            MDQueryScope::NetworkIndexed => "kMDQueryScopeNetworkIndexed".to_string(),
-            MDQueryScope::Custom(path) => path.to_string_lossy().to_string(),
+            Self::Home => "kMDQueryScopeHome".to_string(),
+            Self::Computer => "kMDQueryScopeComputer".to_string(),
+            Self::Network => "kMDQueryScopeNetwork".to_string(),
+            Self::AllIndexed => "kMDQueryScopeAllIndexed".to_string(),
+            Self::ComputerIndexed => "kMDQueryScopeComputerIndexed".to_string(),
+            Self::NetworkIndexed => "kMDQueryScopeNetworkIndexed".to_string(),
+            Self::Custom(path) => path.to_string_lossy().to_string(),
         }
     }
 }
@@ -57,14 +57,14 @@ impl MDItemKey {
     /// The string constant used by the Spotlight API for this key.
     pub fn as_str(&self) -> &'static str {
         match self {
-            MDItemKey::DisplayName => "kMDItemDisplayName",
-            MDItemKey::FSName => "kMDItemFSName",
-            MDItemKey::ModificationDate => "kMDItemContentModificationDate",
-            MDItemKey::CreationDate => "kMDItemContentCreationDate",
-            MDItemKey::LastUsedDate => "kMDItemLastUsedDate",
-            MDItemKey::Size => "kMDItemFSSize",
-            MDItemKey::ContentType => "kMDItemContentType",
-            MDItemKey::Path => "kMDItemPath",
+            Self::DisplayName => "kMDItemDisplayName",
+            Self::FSName => "kMDItemFSName",
+            Self::ModificationDate => "kMDItemContentModificationDate",
+            Self::CreationDate => "kMDItemContentCreationDate",
+            Self::LastUsedDate => "kMDItemLastUsedDate",
+            Self::Size => "kMDItemFSSize",
+            Self::ContentType => "kMDItemContentType",
+            Self::Path => "kMDItemPath",
         }
     }
 
@@ -75,7 +75,7 @@ impl MDItemKey {
     pub fn is_time(&self) -> bool {
         matches!(
             self,
-            MDItemKey::ModificationDate | MDItemKey::CreationDate | MDItemKey::LastUsedDate
+            Self::ModificationDate | Self::CreationDate | Self::LastUsedDate
         )
     }
 }
