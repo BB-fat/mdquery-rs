@@ -40,6 +40,22 @@ impl Future for MDQueryAsyncResult {
 }
 
 impl MDQuery {
+    /// Executes the MDQuery asynchronously
+    /// 
+    /// This method encapsulates the query operation in a Future and executes it in a separate thread.
+    /// When the Future is awaited, it returns the query results.
+    ///
+    /// # Returns
+    ///
+    /// Returns an MDQueryAsyncResult that implements the Future trait,
+    /// with an Output type of Result<Vec<MDItem>>
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let query = MDQuery::new("kMDItemFSName = \"Safari.app\"", None, None)?;
+    /// let items = query.execute_async().await?;
+    /// ```
     pub fn execute_async(self) -> MDQueryAsyncResult {
         MDQueryAsyncResult {
             query: Some(self),
