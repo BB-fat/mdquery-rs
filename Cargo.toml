@@ -10,6 +10,10 @@ keywords = ["macos", "spotlight", "search", "metadata", "finder"]
 categories = ["api-bindings", "filesystem", "os::macos-apis"]
 readme = "README.md"
 
+[features]
+default = []
+async = []
+
 [package.metadata.docs.rs]
 targets = ["aarch64-apple-darwin"]
 rustdoc-args = ["--cfg", "docsrs"]
@@ -20,3 +24,6 @@ anyhow = "1"
 objc2 = "0.6"
 objc2-core-foundation = "0.3"
 chrono = "0.4"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
