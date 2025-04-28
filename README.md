@@ -87,7 +87,7 @@ MIT
 
 ## TODO
 
-- [ ] Implement async query API to provide non-blocking search capabilities
+- [x] Implement async query API to provide non-blocking search capabilities
 - [ ] Add predefined common query templates
 - [ ] Provide specialized search methods for common file types (images, documents, audio, etc.)
 - [ ] Optimize performance for batch metadata reading

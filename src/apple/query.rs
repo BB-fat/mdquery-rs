@@ -1,8 +1,8 @@
+use std::ptr::{self, NonNull};
 use super::{api::*, MDItemKey};
 use super::{MDItem, MDQueryBuilder, MDQueryScope};
 use anyhow::{anyhow, Result};
 use objc2_core_foundation::{CFArrayCreate, CFIndex, CFRetained, CFString};
-use std::ptr::{self, NonNull};
 
 /// A wrapper around macOS Spotlight search query API.
 /// Provides functionality to create and execute metadata queries.
