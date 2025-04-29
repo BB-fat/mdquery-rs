@@ -46,6 +46,8 @@ pub enum MDItemKey {
     Size,
     /// The UTI (Uniform Type Identifier) of the item
     ContentType,
+    /// The content type tree of the item
+    ContentTypeTree,
     /// The path of the item
     Path,
 }
@@ -64,6 +66,7 @@ impl MDItemKey {
             Self::LastUsedDate => "kMDItemLastUsedDate",
             Self::Size => "kMDItemFSSize",
             Self::ContentType => "kMDItemContentType",
+            Self::ContentTypeTree => "kMDItemContentTypeTree",
             Self::Path => "kMDItemPath",
         }
     }

@@ -1,7 +1,7 @@
 use super::{api::*, MDItemKey};
 use anyhow::{anyhow, Result};
 use objc2_core_foundation::{
-    CFArrayGetCount, CFArrayGetValueAtIndex, CFIndex, CFRetained, CFString, ConcreteType,
+    CFArray, CFArrayGetCount, CFArrayGetValueAtIndex, CFIndex, CFRetained, CFString, ConcreteType,
 };
 use std::{
     path::{Path, PathBuf},
@@ -83,10 +83,83 @@ impl MDItem {
     /// * `Option<String>` - The display name, or None if not available
     pub fn display_name(&self) -> Option<String> {
         self.get_attribute::<CFString>(MDItemKey::DisplayName.as_str())
-            .map(|name| {
-                
-                (*name).to_string()
+            .map(|name| (*name).to_string())
+    }
+
+    pub fn content_type(&self) -> Option<String> {
+        self.get_attribute::<CFString>(MDItemKey::ContentType.as_str())
+            .map(|name| (*name).to_string())
+    }
+
+    /// Retrieves the content type tree of this MDItem.
+    ///
+    /// # Returns
+    /// * `Option<Vec<String>>` - The content type tree, or None if not available
+    pub fn content_type_tree(&self) -> Option<Vec<String>> {
+        self.get_attribute::<CFArray>(MDItemKey::ContentTypeTree.as_str())
+            .map(|content_type_tree| {
+                let count = unsafe { CFArrayGetCount(&content_type_tree) } as usize;
+                let mut types = Vec::with_capacity(count);
+                for i in 0..count {
+                    let type_ptr =
+                        unsafe { CFArrayGetValueAtIndex(&content_type_tree, i as CFIndex) };
+                    if let Some(cf_type) = NonNull::new(type_ptr as *mut CFString) {
+                        let type_str = unsafe { cf_type.as_ref().to_string() };
+                        types.push(type_str);
+                    }
+                }
+                types
             })
+    }
+
+    /// Checks if this MDItem is a directory.
+    ///
+    /// # Returns
+    /// * `bool` - Returns true if this is a directory, false otherwise
+    pub fn is_dir(&self) -> bool {
+        self.content_type_tree()
+            .map(|types| types.contains(&"public.folder".to_string()))
+            .unwrap_or(false)
+    }
+
+    /// Checks if this MDItem is an image file.
+    ///
+    /// # Returns
+    /// * `bool` - Returns true if this is an image file, false otherwise
+    pub fn is_image(&self) -> bool {
+        self.content_type_tree()
+            .map(|types| types.contains(&"public.image".to_string()))
+            .unwrap_or(false)
+    }
+
+    /// Checks if this MDItem is an application bundle.
+    ///
+    /// # Returns
+    /// * `bool` - Returns true if this is an application bundle, false otherwise
+    pub fn is_app(&self) -> bool {
+        self.content_type()
+            .map(|content_type| content_type == "com.apple.application-bundle")
+            .unwrap_or(false)
+    }
+
+    /// Checks if this MDItem is a video file.
+    ///
+    /// # Returns
+    /// * `bool` - Returns true if this is a video file, false otherwise
+    pub fn is_video(&self) -> bool {
+        self.content_type_tree()
+            .map(|types| types.contains(&"public.movie".to_string()))
+            .unwrap_or(false)
+    }
+
+    /// Checks if this MDItem is an audio file.
+    ///
+    /// # Returns
+    /// * `bool` - Returns true if this is an audio file, false otherwise
+    pub fn is_audio(&self) -> bool {
+        self.content_type_tree()
+            .map(|types| types.contains(&"public.audio".to_string()))
+            .unwrap_or(false)
     }
 }
 
@@ -106,5 +179,12 @@ mod tests {
         let item = MDItem::from_path("/Applications/Safari.app").unwrap();
         let path = item.path().unwrap();
         assert_eq!(path, PathBuf::from("/Applications/Safari.app"));
+    }
+
+    #[test]
+    fn test_get_content_type_tree() {
+        let item = MDItem::from_path("/Applications/Safari.app").unwrap();
+        let content_type_tree = item.content_type_tree().unwrap();
+        assert!(!content_type_tree.is_empty());
     }
 }
